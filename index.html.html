@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Lee's Pokédex Snake Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:#0a0a0f;min-height:100vh;
+  display:flex;justify-content:center;align-items:flex-start;
+  background-image:linear-gradient(rgba(200,255,0,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(200,255,0,0.06) 1px,transparent 1px);
+  background-size:26px 26px;
+}
+#bg-pb{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:260px;height:260px;opacity:0.045;pointer-events:none;z-index:0;}
+#gb{
+  font-family:'Press Start 2P',monospace;
+  background:linear-gradient(160deg,#f5c000,#e0ad00);
+  border-radius:12px 12px 40px 12px;
+  width:100%;max-width:440px;
+  padding:10px 10px 28px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,0.25),0 6px 0 #9a7200,0 0 40px rgba(200,255,0,0.12);
+  position:relative;z-index:1;margin:10px;
+}
+#bezel{background:#b87c00;border-radius:8px 8px 16px 8px;padding:7px;margin-bottom:10px;box-shadow:inset 0 2px 8px rgba(0,0,0,0.5);}
+#slabel{font-size:8px;color:rgba(0,0,0,0.32);letter-spacing:1px;text-align:center;margin-bottom:5px;line-height:1.8;}
+#sborder{background:#111;border-radius:4px;padding:3px;position:relative;}
+#hud{display:flex;justify-content:space-between;padding:2px 2px 3px;font-size:5px;color:rgba(255,255,255,0.4);}
+#hud span{color:#ffee55;}
+#gamecanvas{display:block;width:100%;height:auto;border-radius:3px;image-rendering:pixelated;}
+#dexoverlay{
+  display:none;position:absolute;top:3px;left:3px;right:3px;bottom:3px;
+  border-radius:3px;background:#071a18;flex-direction:column;overflow:hidden;z-index:10;
+}
+#dexoverlay.show{display:flex;}
+#dextop{flex-shrink:0;padding:8px 8px 4px;text-align:center;}
+#dextitle{font-size:8px;color:#c8ff00;text-shadow:0 0 10px #c8ff00;margin-bottom:4px;line-height:1.8;}
+#dexsub{font-size:5px;color:#5dc8b8;margin-bottom:2px;}
+#dexscroll{flex:1;overflow-y:auto;padding:6px 6px 44px;-webkit-overflow-scrolling:touch;}
+#dexscroll::-webkit-scrollbar{width:3px;}
+#dexscroll::-webkit-scrollbar-track{background:rgba(255,255,255,0.05);}
+#dexscroll::-webkit-scrollbar-thumb{background:#5dc8b8;border-radius:2px;}
+#dexgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.dexcell{background:rgba(50,180,160,0.08);border:0.5px solid rgba(50,180,160,0.2);border-radius:6px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.dexcell img{width:56px;height:56px;image-rendering:pixelated;}
+.dexnum{font-size:5px;color:#5dc8b8;}
+.dexname{font-size:6px;color:#fff;text-align:center;line-height:1.6;word-break:break-word;}
+#dexbottom{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);padding:6px;text-align:center;}
+#dexbottom span{font-size:5px;color:#ffee55;text-shadow:0 0 6px #ffee55;}
+#dbar{text-align:center;font-size:5px;color:rgba(0,0,0,0.45);margin:5px 0 4px;}
+#dbar span{color:#7a4000;font-size:6px;}
+#bctrl{display:flex;justify-content:space-between;align-items:center;padding:0 4px;margin-top:10px;gap:4px;}
+#dpad{position:relative;width:168px;height:168px;flex-shrink:0;}
+.dp{
+  position:absolute;background:linear-gradient(180deg,#d4a000,#b08600);
+  border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:#5a3800;font-size:20px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  border-radius:9px;box-shadow:0 5px 0 #7a5e00;width:54px;height:54px;font-family:'Press Start 2P',monospace;
+}
+.dp:active{transform:translateY(4px);box-shadow:0 1px 0 #7a5e00;}
+#dup{top:0;left:57px;}#ddn{bottom:0;left:57px;}#dlt{top:57px;left:0;}#drt{top:57px;right:0;}
+#abwrap{display:flex;align-items:flex-end;gap:14px;padding-right:4px;}
+.ab{
+  border:none;border-radius:50%;cursor:pointer;font-family:'Press Start 2P',monospace;color:#fff;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.35;padding:4px;
+  box-shadow:0 4px 0 #880000;
+}
+#btnB{width:62px;height:62px;font-size:6px;background:radial-gradient(circle at 38% 35%,#ff7070,#cc0000);margin-bottom:16px;}
+#btnA{width:72px;height:72px;font-size:6px;background:radial-gradient(circle at 38% 35%,#ff7070,#cc0000);}
+#btnB:active,#btnA:active{transform:translateY(3px);box-shadow:0 1px 0 #880000;}
+</style>
+</head>
+<body>
+<svg id="bg-pb" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#c8ff00" stroke-width="5"/>
+  <line x1="6" y1="100" x2="194" y2="100" stroke="#c8ff00" stroke-width="5"/>
+  <circle cx="100" cy="100" r="22" fill="none" stroke="#c8ff00" stroke-width="5"/>
+  <circle cx="100" cy="100" r="11" fill="#c8ff00"/>
+  <path d="M6,100 A94,94 0 0,1 194,100" fill="#c8ff00" opacity="0.1"/>
+</svg>
+<div id="gb">
+  <div id="bezel">
+    <div id="slabel">LEE'S POKÉDEX SNAKE GAME</div>
+    <div id="sborder">
+      <div id="hud">SCORE:<span id="sc">0</span>&nbsp;&nbsp;BEST:<span id="hi">0</span></div>
+      <canvas id="gamecanvas" width="380" height="360"></canvas>
+      <div id="dexoverlay">
+        <div id="dextop"><div id="dextitle"></div><div id="dexsub"></div></div>
+        <div id="dexscroll"><div id="dexgrid"></div></div>
+        <div id="dexbottom"><span>PRESS TURBO TO PLAY AGAIN</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="dbar">CAUGHT: <span id="cc">0</span> / 151</div>
+  <div id="bctrl">
+    <div id="dpad">
+      <button class="dp" id="dup">▲</button>
+      <button class="dp" id="dlt">◀</button>
+      <button class="dp" id="drt">▶</button>
+      <button class="dp" id="ddn">▼</button>
+    </div>
+    <div id="abwrap">
+      <button class="ab" id="btnB">PAUSE</button>
+      <button class="ab" id="btnA">TURBO</button>
+    </div>
+  </div>
+</div>
+<script>
+const vib=p=>{try{navigator.vibrate&&navigator.vibrate(p);}catch(e){}};
+
+// --- Web Audio pokeball sound ---
+let audioCtx=null;
+function getAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playPokeballSound(){
+  try{
+    const ac=getAudio(),now=ac.currentTime;
+    const click=ac.createOscillator(),cg=ac.createGain();
+    click.connect(cg);cg.connect(ac.destination);
+    click.type='square';click.frequency.setValueAtTime(800,now);click.frequency.exponentialRampToValueAtTime(200,now+0.06);
+    cg.gain.setValueAtTime(0.3,now);cg.gain.exponentialRampToValueAtTime(0.001,now+0.08);
+    click.start(now);click.stop(now+0.08);
+    const sweep=ac.createOscillator(),sg=ac.createGain(),filt=ac.createBiquadFilter();
+    sweep.connect(filt);filt.connect(sg);sg.connect(ac.destination);
+    sweep.type='sine';filt.type='bandpass';filt.frequency.value=1200;filt.Q.value=2;
+    sweep.frequency.setValueAtTime(300,now+0.05);sweep.frequency.exponentialRampToValueAtTime(1800,now+0.18);sweep.frequency.exponentialRampToValueAtTime(900,now+0.35);
+    sg.gain.setValueAtTime(0,now+0.05);sg.gain.linearRampToValueAtTime(0.25,now+0.12);sg.gain.exponentialRampToValueAtTime(0.001,now+0.38);
+    sweep.start(now+0.05);sweep.stop(now+0.4);
+    const ping=ac.createOscillator(),pg=ac.createGain();
+    ping.connect(pg);pg.connect(ac.destination);
+    ping.type='sine';ping.frequency.setValueAtTime(2400,now+0.1);ping.frequency.exponentialRampToValueAtTime(1600,now+0.3);
+    pg.gain.setValueAtTime(0,now+0.1);pg.gain.linearRampToValueAtTime(0.18,now+0.14);pg.gain.exponentialRampToValueAtTime(0.001,now+0.32);
+    ping.start(now+0.1);ping.stop(now+0.35);
+  }catch(e){}
+}
+
+// --- Dynamic canvas sizing ---
+function computeCanvasHeight(){
+  const vh=window.innerHeight;
+  const gb=document.getElementById('gb');
+  const gbStyle=getComputedStyle(gb);
+  const gbPadV=parseFloat(gbStyle.paddingTop)+parseFloat(gbStyle.paddingBottom);
+  const bezelStyle=getComputedStyle(document.getElementById('bezel'));
+  const bezelPadV=parseFloat(bezelStyle.paddingTop)+parseFloat(bezelStyle.paddingBottom);
+  const bezelMarB=parseFloat(bezelStyle.marginBottom||10);
+  const slabelH=document.getElementById('slabel').offsetHeight+5;
+  const hudH=document.getElementById('hud').offsetHeight+3;
+  const dbarH=document.getElementById('dbar').offsetHeight+9;
+  const bctrlH=document.getElementById('bctrl').offsetHeight+10;
+  const reserved=20+gbPadV+bezelPadV+bezelMarB+6+slabelH+hudH+dbarH+bctrlH+26;
+  return Math.max(260,Math.floor(vh-reserved));
+}
+function resizeCanvas(){
+  const c=document.getElementById('gamecanvas');
+  const displayW=c.offsetWidth||380;
+  const newH=computeCanvasHeight();
+  const ratio=displayW/380;
+  c.width=380;c.height=Math.round(newH/ratio);
+  CH=c.height;ROWS=Math.max(12,Math.floor(CH/(380/19)));TH=CH/ROWS;
+  if(state==='idle')splash();else if(state==='playing')draw();
+}
+
+const canvas=document.getElementById('gamecanvas');
+const ctx=canvas.getContext('2d');
+let CW=380,CH=360,COLS=19,ROWS=18;
+const TW=CW/COLS;let TH=CH/ROWS;
+
+const NAMES=["Bulbasaur","Ivysaur","Venusaur","Charmander","Charmeleon","Charizard","Squirtle","Wartortle","Blastoise","Caterpie","Metapod","Butterfree","Weedle","Kakuna","Beedrill","Pidgey","Pidgeotto","Pidgeot","Rattata","Raticate","Spearow","Fearow","Ekans","Arbok","Pikachu","Raichu","Sandshrew","Sandslash","Nidoran♀","Nidorina","Nidoqueen","Nidoran♂","Nidorino","Nidoking","Clefairy","Clefable","Vulpix","Ninetales","Jigglypuff","Wigglytuff","Zubat","Golbat","Oddish","Gloom","Vileplume","Paras","Parasect","Venonat","Venomoth","Diglett","Dugtrio","Meowth","Persian","Psyduck","Golduck","Mankey","Primeape","Growlithe","Arcanine","Poliwag","Poliwhirl","Poliwrath","Abra","Kadabra","Alakazam","Machop","Machoke","Machamp","Bellsprout","Weepinbell","Victreebel","Tentacool","Tentacruel","Geodude","Graveler","Golem","Ponyta","Rapidash","Slowpoke","Slowbro","Magnemite","Magneton","Farfetch'd","Doduo","Dodrio","Seel","Dewgong","Grimer","Muk","Shellder","Cloyster","Gastly","Haunter","Gengar","Onix","Drowzee","Hypno","Krabby","Kingler","Voltorb","Electrode","Exeggcute","Exeggutor","Cubone","Marowak","Hitmonlee","Hitmonchan","Lickitung","Koffing","Weezing","Rhyhorn","Rhydon","Chansey","Tangela","Kangaskhan","Horsea","Seadra","Goldeen","Seaking","Staryu","Starmie","Mr. Mime","Scyther","Jynx","Electabuzz","Magmar","Pinsir","Tauros","Magikarp","Gyarados","Lapras","Ditto","Eevee","Vaporeon","Jolteon","Flareon","Porygon","Omanyte","Omastar","Kabuto","Kabutops","Aerodactyl","Snorlax","Articuno","Zapdos","Moltres","Dratini","Dragonair","Dragonite","Mewtwo","Mew"];
+
+let snake,dir,ndir,food,score,best=0,timer,state='idle';
+let caught=new Set(),popups=[],turbo=false,paused=false;
+let imgs={};
+const BS=170,TS=100;
+
+const SPLASHES=[
+  {ox:-0.30,oy: 0.10,r:0.11,col:'#e03030'},
+  {ox: 0.20,oy:-0.05,r:0.09,col:'#3060e0'},
+  {ox:-0.05,oy: 0.28,r:0.08,col:'#20b040'},
+  {ox: 0.35,oy: 0.18,r:0.07,col:'#e0a020'},
+  {ox:-0.18,oy:-0.08,r:0.07,col:'#cc30cc'},
+];
+
+function img(id){
+  if(imgs[id])return imgs[id];
+  const i=new Image();i.crossOrigin='anonymous';
+  i.src=`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+  return imgs[id]=i;
+}
+for(let i=1;i<=151;i++)img(i);
+
+function rFood(s){
+  let f,t=0;
+  do{f={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};t++;}
+  while(t<300&&s.some(p=>p.x===f.x&&p.y===f.y));
+  return f;
+}
+
+function init(){
+  const mx=Math.floor(COLS/2),my=Math.floor(ROWS/2);
+  snake=[{x:mx,y:my},{x:mx-1,y:my},{x:mx-2,y:my}];
+  dir={x:1,y:0};ndir={x:1,y:0};score=0;popups=[];
+  document.getElementById('sc').textContent=0;food=rFood(snake);
+}
+
+function drawBG(){
+  ctx.fillStyle='#071a18';ctx.fillRect(0,0,CW,CH);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if((r+c)%2===0){ctx.fillStyle='rgba(50,180,160,0.03)';ctx.fillRect(c*TW,r*TH,TW,TH);}
+  }
+  ctx.strokeStyle='rgba(50,180,160,0.1)';ctx.lineWidth=.3;
+  for(let i=0;i<=COLS;i++){ctx.beginPath();ctx.moveTo(i*TW,0);ctx.lineTo(i*TW,CH);ctx.stroke();}
+  for(let j=0;j<=ROWS;j++){ctx.beginPath();ctx.moveTo(0,j*TH);ctx.lineTo(CW,j*TH);ctx.stroke();}
+  ctx.save();ctx.globalAlpha=0.07;
+  const cx=CW/2,cy=CH/2,r=Math.min(CW,CH)*.34;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.fillStyle='#ff4444';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-r,cy);ctx.lineTo(cx+r,cy);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r*.22,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.restore();
+}
+
+function pokeball(cx,cy,r){
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.fillStyle='#e00';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='#111';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-r,cy);ctx.lineTo(cx+r,cy);ctx.strokeStyle='#111';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r*.28,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+// Draw a proper side-on 3D fedora sitting on top of the head
+function drawFedora(cx,cy,r){
+  // fedora always drawn upright above the head centre
+  // crown sits above cy, brim extends left/right
+  const brimW=r*1.6;      // total brim width
+  const brimH=r*0.18;     // brim thickness (ellipse vertical)
+  const crownW=r*1.0;     // crown width at base
+  const crownH=r*0.72;    // crown height
+  const baseY=cy-r*0.82;  // where brim sits (just above head top)
+  const topY=baseY-crownH;// top of crown
+
+  ctx.save();
+
+  // --- BRIM ---
+  // brim underside shadow
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY+brimH*0.5, brimW*0.5, brimH*0.55, 0, 0, Math.PI*2);
+  ctx.fillStyle='#c8c8c8';ctx.fill();
+
+  // brim top surface
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY, brimW*0.5, brimH*0.5, 0, 0, Math.PI*2);
+  ctx.fillStyle='#f2f2f2';ctx.fill();
+  ctx.strokeStyle='#aaa';ctx.lineWidth=0.6;ctx.stroke();
+
+  // --- CROWN ---
+  // crown body — trapezoid slightly narrower at top
+  ctx.beginPath();
+  ctx.moveTo(cx - crownW*0.48, baseY);
+  ctx.lineTo(cx - crownW*0.38, topY + crownH*0.18);
+  // rounded top using quadratic curves
+  ctx.quadraticCurveTo(cx - crownW*0.28, topY, cx, topY - r*0.08);
+  ctx.quadraticCurveTo(cx + crownW*0.28, topY, cx + crownW*0.38, topY + crownH*0.18);
+  ctx.lineTo(cx + crownW*0.48, baseY);
+  ctx.closePath();
+  ctx.fillStyle='#f0f0f0';ctx.fill();
+  ctx.strokeStyle='#aaa';ctx.lineWidth=0.6;ctx.stroke();
+
+  // crown left shadow panel
+  ctx.beginPath();
+  ctx.moveTo(cx - crownW*0.48, baseY);
+  ctx.lineTo(cx - crownW*0.38, topY + crownH*0.18);
+  ctx.quadraticCurveTo(cx - crownW*0.28, topY, cx - crownW*0.1, topY - r*0.04);
+  ctx.lineTo(cx - crownW*0.1, baseY);
+  ctx.closePath();
+  ctx.fillStyle='rgba(0,0,0,0.07)';ctx.fill();
+
+  // crown top ellipse cap
+  ctx.beginPath();
+  ctx.ellipse(cx, topY - r*0.04, crownW*0.38, r*0.1, 0, 0, Math.PI*2);
+  ctx.fillStyle='#e8e8e8';ctx.fill();
+  ctx.strokeStyle='#aaa';ctx.lineWidth=0.5;ctx.stroke();
+
+  // hat band — thin dark stripe near brim
+  ctx.beginPath();
+  ctx.rect(cx - crownW*0.48, baseY - crownH*0.2, crownW*0.96, crownH*0.14);
+  ctx.fillStyle='rgba(0,0,0,0.18)';ctx.fill();
+
+  // --- PAINT SPLASHES on crown face ---
+  SPLASHES.forEach(s=>{
+    const sx=cx + s.ox * crownW*0.55;
+    const sy=baseY - crownH*0.45 + s.oy * crownH*0.4;
+    // only draw if roughly within crown bounds
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cx - crownW*0.47, topY - r*0.05, crownW*0.94, crownH+r*0.05);
+    ctx.clip();
+    // blob
+    ctx.beginPath();ctx.arc(sx,sy,s.r*r*1.6,0,Math.PI*2);
+    ctx.fillStyle=s.col;ctx.globalAlpha=0.88;ctx.fill();
+    // drip drop below
+    ctx.beginPath();ctx.ellipse(sx,sy+s.r*r*1.8,s.r*r*0.55,s.r*r*1.1,0,0,Math.PI*2);
+    ctx.fill();
+    // small satellite splat
+    ctx.beginPath();ctx.arc(sx+s.r*r*1.4,sy-s.r*r*0.6,s.r*r*0.5,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.restore();
+  });
+
+  ctx.restore();
+}
+
+function drawSnakeHead(x,y,d){
+  const cx=x+TW/2,cy=y+TH/2,r=TW*.44;
+  ctx.save();
+
+  // yellow head
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='#f0c000';ctx.fill();
+  ctx.strokeStyle='#b08800';ctx.lineWidth=1;ctx.stroke();
+
+  // eye positions based on direction
+  let e1,e2;
+  if(d.x===1){e1={x:cx+r*.28,y:cy-r*.26};e2={x:cx+r*.28,y:cy+r*.26};}
+  else if(d.x===-1){e1={x:cx-r*.28,y:cy-r*.26};e2={x:cx-r*.28,y:cy+r*.26};}
+  else if(d.y===-1){e1={x:cx-r*.26,y:cy-r*.28};e2={x:cx+r*.26,y:cy-r*.28};}
+  else{e1={x:cx-r*.26,y:cy+r*.28};e2={x:cx+r*.26,y:cy+r*.28};}
+
+  const er=r*.2;
+  [e1,e2].forEach(e=>{
+    ctx.beginPath();ctx.arc(e.x,e.y,er,0,Math.PI*2);
+    ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#333';ctx.lineWidth=0.6;ctx.stroke();
+  });
+  const po=er*.38;
+  let px=d.x*po,py=d.y*po;
+  [e1,e2].forEach(e=>{
+    ctx.beginPath();ctx.arc(e.x+px,e.y+py,er*.5,0,Math.PI*2);ctx.fillStyle='#111';ctx.fill();
+    ctx.beginPath();ctx.arc(e.x+px+er*.15,e.y+py-er*.15,er*.15,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  });
+
+  // tongue
+  ctx.save();ctx.translate(cx,cy);
+  if(d.x===1)ctx.rotate(0);
+  else if(d.x===-1)ctx.rotate(Math.PI);
+  else if(d.y===-1)ctx.rotate(-Math.PI/2);
+  else ctx.rotate(Math.PI/2);
+  ctx.fillStyle='#e03060';
+  ctx.fillRect(r*.35,-r*.05,r*.32,r*.1);
+  ctx.beginPath();ctx.arc(r*.67,-r*.09,r*.09,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(r*.67,r*.09,r*.09,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+
+  // fedora — always upright, centred on head
+  drawFedora(cx,cy,r);
+
+  ctx.restore();
+}
+
+function drawSnakeBody(p,i){
+  const x=p.x*TW,y=p.y*TH;
+  const shade=Math.max(0,1-i*0.015);
+  const g=Math.round(180*shade+40);
+  ctx.fillStyle=`rgb(240,${g},0)`;
+  ctx.beginPath();ctx.roundRect(x+2,y+2,TW-4,TH-4,4);ctx.fill();
+  ctx.strokeStyle='#b08800';ctx.lineWidth=0.5;ctx.stroke();
+  ctx.fillStyle='rgba(0,0,0,0.08)';
+  ctx.beginPath();ctx.arc(x+TW/2,y+TH/2,TW*.2,0,Math.PI*2);ctx.fill();
+}
+
+function draw(){
+  drawBG();
+  for(let i=snake.length-1;i>0;i--)drawSnakeBody(snake[i],i);
+  drawSnakeHead(snake[0].x*TW,snake[0].y*TH,dir);
+  pokeball(food.x*TW+TW/2,food.y*TH+TH/2,Math.min(TW,TH)*.36);
+  const now=Date.now();
+  popups=popups.filter(p=>now-p.t<1800);
+  popups.forEach(p=>{
+    const age=(now-p.t)/1800,sc=.5+age*1.3,al=1-age;
+    ctx.save();ctx.globalAlpha=al;
+    ctx.translate(p.x*TW+TW/2,p.y*TH+TH/2-age*35);ctx.scale(sc,sc);
+    if(p.i.complete&&p.i.naturalWidth>0)ctx.drawImage(p.i,-24,-24,48,48);
+    ctx.font='bold 7px "Press Start 2P",monospace';ctx.textAlign='center';
+    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeText(p.n,0,34);
+    ctx.fillStyle='#fff';ctx.fillText(p.n,0,34);
+    ctx.restore();
+  });
+  if(paused&&state==='playing'){
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,CW,CH);
+    ctx.shadowColor='#ffee55';ctx.shadowBlur=10;
+    ctx.fillStyle='#ffee55';ctx.font='14px "Press Start 2P",monospace';ctx.textAlign='center';
+    ctx.fillText('PAUSED',CW/2,CH/2-8);ctx.shadowBlur=0;
+    ctx.fillStyle='#888';ctx.font='6px "Press Start 2P",monospace';
+    ctx.fillText('PRESS TURBO TO RESUME',CW/2,CH/2+14);
+  }
+}
+
+function popup(x,y,id){
+  popups.push({x,y,t:Date.now(),i:img(id),n:NAMES[id-1].toUpperCase()});
+}
+
+function step(){
+  if(paused)return;
+  dir=ndir;
+  const h={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(h.x<0||h.x>=COLS||h.y<0||h.y>=ROWS||snake.some(p=>p.x===h.x&&p.y===h.y)){end();return;}
+  snake.unshift(h);
+  if(h.x===food.x&&h.y===food.y){
+    score++;if(score>best)best=score;
+    document.getElementById('sc').textContent=score;
+    document.getElementById('hi').textContent=best;
+    playPokeballSound();
+    const av=[...Array(151).keys()].map(i=>i+1).filter(i=>!caught.has(i));
+    if(av.length){
+      const id=av[Math.floor(Math.random()*av.length)];
+      caught.add(id);document.getElementById('cc').textContent=caught.size;
+      popup(food.x,food.y,id);
+      if(caught.size===151){setTimeout(win,1800);}
+    }
+    food=rFood(snake);
+  }else snake.pop();
+  draw();
+}
+
+function start(){
+  if(timer)clearInterval(timer);
+  caught.clear();paused=false;turbo=false;
+  document.getElementById('cc').textContent=0;
+  document.getElementById('btnB').textContent='PAUSE';
+  hideDex();init();state='playing';
+  timer=setInterval(step,BS);
+}
+
+function end(){clearInterval(timer);timer=null;state='dead';showDex(false);}
+function win(){clearInterval(timer);timer=null;state='win';showDex(true);}
+
+function showDex(w){
+  const grid=document.getElementById('dexgrid');
+  document.getElementById('dextitle').textContent=w?'YOU CAUGHT EM ALL LEE!':'YOU CAUGHT '+caught.size+' POKEMON LEE!';
+  document.getElementById('dexsub').textContent='CAUGHT: '+caught.size+'/151';
+  grid.innerHTML='';
+  const arr=[...caught].sort((a,b)=>a-b);
+  if(!arr.length){
+    const e=document.createElement('div');
+    e.style.cssText='grid-column:1/-1;text-align:center;color:#444;font-size:7px;padding:24px;font-family:"Press Start 2P",monospace;line-height:2;';
+    e.textContent='NO POKEMON CAUGHT';grid.appendChild(e);
+  }else{
+    arr.forEach(id=>{
+      const cell=document.createElement('div');cell.className='dexcell';
+      const im=document.createElement('img');
+      im.src=`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+      im.width=56;im.height=56;
+      const num=document.createElement('div');num.className='dexnum';num.textContent='#'+String(id).padStart(3,'0');
+      const name=document.createElement('div');name.className='dexname';name.textContent=NAMES[id-1].toUpperCase();
+      cell.appendChild(im);cell.appendChild(num);cell.appendChild(name);grid.appendChild(cell);
+    });
+  }
+  document.getElementById('dexscroll').scrollTop=0;
+  document.getElementById('dexoverlay').classList.add('show');
+}
+
+function hideDex(){document.getElementById('dexoverlay').classList.remove('show');}
+
+function splash(){
+  ctx.fillStyle='#071a18';ctx.fillRect(0,0,CW,CH);
+  // pokeball watermark
+  ctx.save();ctx.globalAlpha=0.07;
+  const wcx=CW/2,wcy=CH/2,wr=Math.min(CW,CH)*.34;
+  ctx.beginPath();ctx.arc(wcx,wcy,wr,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(wcx,wcy,wr,Math.PI,0);ctx.fillStyle='#ff4444';ctx.fill();
+  ctx.beginPath();ctx.arc(wcx,wcy,wr,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(wcx-wr,wcy);ctx.lineTo(wcx+wr,wcy);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();
+  ctx.beginPath();ctx.arc(wcx,wcy,wr*.22,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.restore();
+
+  // Title — big, two lines: "LEE'S POKÉDEX" then "SNAKE GAME"
+  const midY=CH/2;
+  ctx.textAlign='center';
+
+  // line 1: LEE'S POKÉDEX
+  ctx.shadowColor='#c8ff00';ctx.shadowBlur=22;
+  ctx.fillStyle='#c8ff00';
+  ctx.font='bold 17px "Press Start 2P",monospace';
+  ctx.fillText("LEE'S POKÉDEX",CW/2,midY-44);
+
+  // line 2: SNAKE GAME
+  ctx.font='bold 17px "Press Start 2P",monospace';
+  ctx.fillText('SNAKE GAME',CW/2,midY-14);
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle='#5dc8b8';ctx.font='6px "Press Start 2P",monospace';
+  ctx.fillText('CATCH ALL 151 POKEMON',CW/2,midY+20);
+  ctx.fillStyle='#aaa';ctx.font='5px "Press Start 2P",monospace';
+  ctx.fillText('PRESS TURBO TO START',CW/2,midY+40);
+}
+
+// D-pad
+const DM={dup:{x:0,y:-1},ddn:{x:0,y:1},dlt:{x:-1,y:0},drt:{x:1,y:0}};
+Object.entries(DM).forEach(([id,d])=>{
+  document.getElementById(id).addEventListener('pointerdown',e=>{
+    e.preventDefault();vib([54,27,54]);
+    if(state==='playing'&&!(d.x===-dir.x&&d.y===-dir.y))ndir=d;
+  });
+});
+
+document.getElementById('btnB').addEventListener('pointerdown',e=>{
+  e.preventDefault();vib(100);
+  if(state!=='playing')return;
+  paused=!paused;
+  document.getElementById('btnB').textContent=paused?'RESUME':'PAUSE';
+  draw();
+});
+
+document.getElementById('btnA').addEventListener('pointerdown',e=>{
+  e.preventDefault();vib(100);
+  if(state!=='playing'){start();return;}
+  if(paused){paused=false;document.getElementById('btnB').textContent='PAUSE';draw();return;}
+  turbo=true;if(timer){clearInterval(timer);timer=setInterval(step,TS);}
+});
+['pointerup','pointerleave','pointercancel'].forEach(ev=>{
+  document.getElementById('btnA').addEventListener(ev,()=>{
+    turbo=false;if(timer&&state==='playing'){clearInterval(timer);timer=setInterval(step,BS);}
+  });
+});
+
+document.addEventListener('keydown',e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d',' '].includes(e.key))e.preventDefault();
+  if(e.key===' '){
+    if(state!=='playing'){start();return;}
+    paused=!paused;document.getElementById('btnB').textContent=paused?'RESUME':'PAUSE';draw();return;
+  }
+  const km={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
+  const d=km[e.key];
+  if(d&&state==='playing'&&!(d.x===-dir.x&&d.y===-dir.y))ndir=d;
+  if(e.key==='Shift'){
+    if(state!=='playing'){start();return;}
+    turbo=true;if(timer){clearInterval(timer);timer=setInterval(step,TS);}
+  }
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='Shift'){turbo=false;if(timer&&state==='playing'){clearInterval(timer);timer=setInterval(step,BS);}}
+});
+
+window.addEventListener('load',()=>{setTimeout(()=>{resizeCanvas();splash();},120);});
+window.addEventListener('resize',()=>{resizeCanvas();if(state==='idle')splash();});
+splash();
+</script>
+</body>
+</html>
